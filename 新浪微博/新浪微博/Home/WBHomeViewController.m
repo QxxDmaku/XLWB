@@ -43,7 +43,7 @@
     [self setupUserInfo];
     
     // 加载微博数据
-    [self loadNewStatus];
+   // [self loadNewStatus];
     
     //集成刷新的控件
     [self setupReFresh];
@@ -57,7 +57,11 @@
     UIRefreshControl* control = [[UIRefreshControl alloc] init];
     [control addTarget:self action:@selector(refreshChange:) forControlEvents:UIControlEventValueChanged];
     [self.tableView addSubview:control];
-    NSLog(@"集成刷新的控件");
+    //NSLog(@"集成刷新的控件");
+    //进入之后手动刷新(这里的只会触发刷新的状态，并不会进入refreshChange 方法)
+    [control beginRefreshing];
+    
+    [self refreshChange:control];
 }
 -(void)refreshChange:(UIRefreshControl*) control{
      NSLog(@"集成刷新的控件 触发");
@@ -77,8 +81,9 @@
     WBStatus* firstStatus  = [self.statuses firstObject];
     NSMutableDictionary* params = [NSMutableDictionary dictionary];
     params[@"access_token"] = account.access_token;
-    params[@"since_id"] = firstStatus.idstr;
-    
+    if(firstStatus){
+        params[@"since_id"] = firstStatus.idstr;
+    }
     //3、发送请求
     [manager GET:@"https://api.weibo.com/2/statuses/friends_timeline.json" parameters:params success:^(AFHTTPRequestOperation *operation, NSDictionary* responseObject) {
         //新浪默认返回的是 json
@@ -93,6 +98,9 @@
         
         //结束刷新的状态
         [control endRefreshing];
+        
+        //显示最新的微博的数量
+        [self shwoNewStatusCount:Status.count];
     } failure:^(AFHTTPRequestOperation *operation, NSError *error) {
         NSLog(@"refreshChange  发送失败-----%@" ,error);
         //结束刷新的状态
@@ -100,6 +108,59 @@
     }];
     
 
+}
+/**
+ *  刷新过后显示 最新得到的微博的数量
+ *
+ *  @param count 得到的最新数据的个数
+ */
+-(void)shwoNewStatusCount:(int)count{
+    //初始化 lab 对象
+    UILabel* lab = [[UILabel alloc] init];
+    lab.backgroundColor = [UIColor colorWithPatternImage:[UIImage imageNamed:@"timeline_new_status_background"]];
+    lab.width = [UIScreen mainScreen].bounds.size.width;
+    lab.height= 35;
+    
+    //设置其他的属性
+    if (count == 0) {
+        lab.text = @"没有最新的数据";
+    }else{
+        lab.text =[NSString stringWithFormat:@"共有%d条最新的微博数据",count];
+    }
+    //
+    lab.textColor = [UIColor whiteColor];
+    lab.textAlignment = NSTextAlignmentCenter; //设置文字居中
+    lab.font = [UIFont systemFontOfSize:16];
+    
+    CGRect frame = lab.frame;
+    frame.origin.y = 64 - frame.size.height;
+    lab.frame = frame;
+    //
+    //lab.x = 128;
+    [self.navigationController.view  insertSubview:lab belowSubview:self.navigationController.navigationBar];
+//    [self.navigationController.view addSubview:lab];
+    
+    CGFloat duration = 1.0;
+    CGFloat delay = 1.0;
+    [UIView animateWithDuration:duration animations:^{
+        CGRect frame = lab.frame;
+        frame.origin.y += frame.size.height;
+        lab.frame = frame;
+        // lab.transform
+    } completion:^(BOOL finished) {
+        //延迟一下再执行下一个动画
+        
+        //options:UIViewAnimationOptionCurveLinear 枚举线性匀速动画
+        [UIView animateWithDuration:duration delay:delay options:UIViewAnimationOptionCurveLinear animations:^{
+            CGRect frame = lab.frame;
+            frame.origin.y -= frame.size.height;
+            lab.frame = frame;
+        } completion:^(BOOL finished) {
+            [lab removeFromSuperview];
+        }];
+        
+    }];
+    
 }
 #pragma mark - loadNewStatus 获取自己和所关注的人的信息
 /**
