@@ -55,10 +55,13 @@
  */
 -(void)setupReFresh{
     UIRefreshControl* control = [[UIRefreshControl alloc] init];
-    [control addTarget:self action:@selector(refreshChange) forControlEvents:UIControlEventValueChanged];
+    [control addTarget:self action:@selector(refreshChange:) forControlEvents:UIControlEventValueChanged];
     [self.tableView addSubview:control];
+    NSLog(@"集成刷新的控件");
 }
--(void)refreshChange{
+-(void)refreshChange:(UIRefreshControl*) control{
+     NSLog(@"集成刷新的控件 触发");
+    
     //请求的地址  https://api.weibo.com/2/statuses/friends_timeline.json
     //请求的参数   access_token
     //            uid
@@ -69,23 +72,31 @@
     
     //2、拼接请求参数
     WBAccountModule* account  = [WBAccountTools account];
+    
+    //3、取出最新的微博 最新的微博 ID 是最大的
+    WBStatus* firstStatus  = [self.statuses firstObject];
     NSMutableDictionary* params = [NSMutableDictionary dictionary];
     params[@"access_token"] = account.access_token;
-    params[@"count"] = @15;
+    params[@"since_id"] = firstStatus.idstr;
     
     //3、发送请求
     [manager GET:@"https://api.weibo.com/2/statuses/friends_timeline.json" parameters:params success:^(AFHTTPRequestOperation *operation, NSDictionary* responseObject) {
         //新浪默认返回的是 json
-        NSLog(@"发送成功------");
+        NSLog(@"refreshChange  发送成功------");
         NSArray* Status = [WBStatus objectArrayWithKeyValuesArray:responseObject[@"statuses"]];
+        //把返回的数据 添加在 数组的最前面
         NSRange range = NSMakeRange(0, Status.count);
         NSIndexSet* set = [NSIndexSet indexSetWithIndexesInRange:range];
         [self.statuses insertObjects:Status atIndexes:set];
         
         [self.tableView reloadData];
         
+        //结束刷新的状态
+        [control endRefreshing];
     } failure:^(AFHTTPRequestOperation *operation, NSError *error) {
-        NSLog(@"发送失败-----%@" ,error);
+        NSLog(@"refreshChange  发送失败-----%@" ,error);
+        //结束刷新的状态
+        [control endRefreshing];
     }];
     
 
@@ -98,7 +109,7 @@
     //请求的地址  https://api.weibo.com/2/statuses/friends_timeline.json
     //请求的参数   access_token
     //            uid
-    //1、请求管理者
+    //1、请求q管理者
     AFHTTPRequestOperationManager* manager = [AFHTTPRequestOperationManager manager];
     // 设置服务器默认返回的 格式
     //manager.responseSerializer = [AFHTTPResponseSerializer serializer];
@@ -107,7 +118,7 @@
     WBAccountModule* account  = [WBAccountTools account];
     NSMutableDictionary* params = [NSMutableDictionary dictionary];
     params[@"access_token"] = account.access_token;
-    params[@"count"] = @15;
+    params[@"count"] = @2;
     
     //3、发送请求
     [manager GET:@"https://api.weibo.com/2/statuses/friends_timeline.json" parameters:params success:^(AFHTTPRequestOperation *operation, NSDictionary* responseObject) {
